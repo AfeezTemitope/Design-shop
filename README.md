@@ -71,3 +71,4 @@ prisma/schema.prisma      Category, Design, Media, Package, Order
 ```
 
 Contact details and social handles live in `src/lib/site.ts`.
+# Design-shop

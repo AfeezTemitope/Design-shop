@@ -34,7 +34,9 @@ export type DesignFormValue = {
 
 const A_SIZES = ["A5", "A4", "A3", "A2", "A1"];
 
-const field = "min-h-12 w-full rounded-xl border border-field bg-white px-3.5 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
+// Width is set per use: `fieldFull` for normal rows, `field` + an explicit width for small number boxes
+const field = "min-h-12 min-w-0 rounded-xl border border-field bg-white px-3.5 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
+const fieldFull = `${field} w-full`;
 const label = "flex flex-col gap-1.5 text-[13px] font-bold text-body";
 const defaultPackages: Pkg[] = [
   { name: "Basic", price: "", includes: "" },
@@ -187,20 +189,20 @@ export function DesignForm({ categories, initial }: { categories: Category[]; in
         <div className="flex gap-2">
           <label className="min-w-0 flex-1">
             <span className="sr-only">Cloudinary URL</span>
-            <input value={pasted} onChange={(e) => setPasted(e.target.value)} type="url" placeholder="Paste Cloudinary video/image URL" className={field} />
+            <input value={pasted} onChange={(e) => setPasted(e.target.value)} type="url" placeholder="Paste Cloudinary video/image URL" className={fieldFull} />
           </label>
           <button type="button" onClick={addPasted} className="min-h-12 rounded-xl bg-brand-soft px-4 font-extrabold text-brand-dark">Add</button>
         </div>
       </section>
 
-      <label className={label}>Title<input value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="e.g. Promo flyer" className={field} /></label>
+      <label className={label}>Title<input value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="e.g. Promo flyer" className={fieldFull} /></label>
       <label className={label}>
         Category
-        <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className={field}>
+        <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className={fieldFull}>
           {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </label>
-      <label className={label}>Description<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className={`${field} resize-none py-3`} /></label>
+      <label className={label}>Description<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className={`${fieldFull} resize-none py-3`} /></label>
 
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-2 text-[13px] font-bold text-body">How is it priced?</legend>
@@ -240,12 +242,12 @@ export function DesignForm({ categories, initial }: { categories: Category[]; in
               </div>
               {s.tiers.length === 0 && <span className="text-[13px] text-muted">No prices yet: customers will ask for a quote.</span>}
               {s.tiers.map((t, j) => (
-                <div key={j} className="flex items-center gap-2 text-sm">
-                  <span className="shrink-0 font-bold text-body">From</span>
-                  <input aria-label="From quantity" inputMode="numeric" value={t.minQty} placeholder="qty" onChange={(e) => setSizes((x) => x.map((y, k) => (k === i ? { ...y, tiers: y.tiers.map((z, m) => (m === j ? { ...z, minQty: e.target.value.replace(/[^\d]/g, "") } : z)) } : y)))} className={`${field} w-20`} />
-                  <span className="shrink-0 font-bold text-body">pcs ₦</span>
-                  <input aria-label="Price per piece" inputMode="numeric" value={t.unitPrice} placeholder="each" onChange={(e) => setSizes((x) => x.map((y, k) => (k === i ? { ...y, tiers: y.tiers.map((z, m) => (m === j ? { ...z, unitPrice: e.target.value.replace(/[^\d]/g, "") } : z)) } : y)))} className={`${field} min-w-0 flex-1`} />
-                  <button type="button" aria-label="Remove price tier" onClick={() => setSizes((x) => x.map((y, k) => (k === i ? { ...y, tiers: y.tiers.filter((_, m) => m !== j) } : y)))} className="flex size-10 shrink-0 items-center justify-center rounded-lg text-muted">
+                <div key={j} className="grid grid-cols-[auto_4.5rem_auto_minmax(0,1fr)_auto] items-center gap-2 text-sm">
+                  <span className="font-bold text-body">From</span>
+                  <input aria-label="From quantity" inputMode="numeric" value={t.minQty} placeholder="qty" onChange={(e) => setSizes((x) => x.map((y, k) => (k === i ? { ...y, tiers: y.tiers.map((z, m) => (m === j ? { ...z, minQty: e.target.value.replace(/[^\d]/g, "") } : z)) } : y)))} className={`${field} w-full px-2 text-center`} />
+                  <span className="font-bold text-body">pcs ₦</span>
+                  <input aria-label="Price per piece" inputMode="numeric" value={t.unitPrice} placeholder="each" onChange={(e) => setSizes((x) => x.map((y, k) => (k === i ? { ...y, tiers: y.tiers.map((z, m) => (m === j ? { ...z, unitPrice: e.target.value.replace(/[^\d]/g, "") } : z)) } : y)))} className={`${field} w-full`} />
+                  <button type="button" aria-label="Remove price tier" onClick={() => setSizes((x) => x.map((y, k) => (k === i ? { ...y, tiers: y.tiers.filter((_, m) => m !== j) } : y)))} className="flex size-10 items-center justify-center rounded-lg text-muted">
                     <CloseIcon className="size-4" />
                   </button>
                 </div>
@@ -292,7 +294,7 @@ export function DesignForm({ categories, initial }: { categories: Category[]; in
                 <input aria-label={`Package ${i + 1} name`} value={p.name} onChange={(e) => setPackages((x) => x.map((y, k) => (k === i ? { ...y, name: e.target.value } : y)))} className={`${field} flex-1`} />
                 <input aria-label={`Package ${i + 1} price in naira`} value={p.price} inputMode="numeric" placeholder="₦ price" onChange={(e) => setPackages((x) => x.map((y, k) => (k === i ? { ...y, price: e.target.value.replace(/[^\d]/g, "") } : y)))} className={`${field} w-32`} />
               </div>
-              <input aria-label={`Package ${i + 1} includes`} value={p.includes} placeholder="What's included, e.g. 2 concepts, 2 revisions" onChange={(e) => setPackages((x) => x.map((y, k) => (k === i ? { ...y, includes: e.target.value } : y)))} className={field} />
+              <input aria-label={`Package ${i + 1} includes`} value={p.includes} placeholder="What's included, e.g. 2 concepts, 2 revisions" onChange={(e) => setPackages((x) => x.map((y, k) => (k === i ? { ...y, includes: e.target.value } : y)))} className={fieldFull} />
             </div>
           ))}
           <label className="flex items-center justify-between gap-3 text-sm font-bold">
@@ -309,7 +311,7 @@ export function DesignForm({ categories, initial }: { categories: Category[]; in
           </label>
           <label className={label}>
             Questions to ask the customer
-            <textarea value={questions} onChange={(e) => setQuestions(e.target.value)} rows={2} placeholder="What does your business do? Any colors you like? Budget range?" className={`${field} resize-none py-3`} />
+            <textarea value={questions} onChange={(e) => setQuestions(e.target.value)} rows={2} placeholder="What does your business do? Any colors you like? Budget range?" className={`${fieldFull} resize-none py-3`} />
           </label>
         </section>
       ) : null}

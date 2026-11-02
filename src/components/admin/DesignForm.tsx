@@ -9,20 +9,30 @@ import { CloseIcon, PlayIcon, PlusIcon } from "@/components/icons";
 type Media = { url: string; type: "IMAGE" | "VIDEO" };
 type Pkg = { name: string; price: string; includes: string };
 type Category = { id: string; name: string };
+type TierRow = { minQty: string; unitPrice: string };
+type SizeRow = { name: string; tiers: TierRow[] };
+type PricingType = "FIXED" | "QUOTE" | "UNIT";
 
 export type DesignFormValue = {
   id?: string;
   title: string;
   description: string;
   categoryId: string;
-  pricingType: "FIXED" | "QUOTE";
+  pricingType: PricingType;
   startsFrom: number | null;
   depositPercent: number;
   quoteQuestions: string;
   isLive: boolean;
   media: Media[];
   packages: { name: string; price: number; includes: string }[];
+  sizes: { name: string; tiers: { minQty: number; unitPrice: number }[] }[];
+  minQty: number;
+  askOrientation: boolean;
+  askDesignReady: boolean;
+  designFee: number | null;
 };
+
+const A_SIZES = ["A5", "A4", "A3", "A2", "A1"];
 
 const field = "min-h-12 w-full rounded-xl border border-field bg-white px-3.5 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
 const label = "flex flex-col gap-1.5 text-[13px] font-bold text-body";
@@ -37,7 +47,14 @@ export function DesignForm({ categories, initial }: { categories: Category[]; in
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? categories[0]?.id ?? "");
-  const [pricingType, setPricingType] = useState<"FIXED" | "QUOTE">(initial?.pricingType ?? "FIXED");
+  const [pricingType, setPricingType] = useState<PricingType>(initial?.pricingType ?? "FIXED");
+  const [sizes, setSizes] = useState<SizeRow[]>(
+    initial?.sizes.map((s) => ({ name: s.name, tiers: s.tiers.map((t) => ({ minQty: String(t.minQty), unitPrice: String(t.unitPrice) })) })) ?? [],
+  );
+  const [minQty, setMinQty] = useState(String(initial?.minQty ?? 1));
+  const [askOrientation, setAskOrientation] = useState(initial?.askOrientation ?? true);
+  const [askDesignReady, setAskDesignReady] = useState(initial?.askDesignReady ?? true);
+  const [designFee, setDesignFee] = useState(initial?.designFee ? String(initial.designFee) : "");
   const [startsFrom, setStartsFrom] = useState(initial?.startsFrom ? String(initial.startsFrom) : "");
   const [deposit, setDeposit] = useState(String(initial?.depositPercent ?? 50));
   const [questions, setQuestions] = useState(initial?.quoteQuestions ?? "");
@@ -100,6 +117,14 @@ export function DesignForm({ categories, initial }: { categories: Category[]; in
       .filter((p) => p.name.trim() && p.price.trim())
       .map((p) => ({ name: p.name.trim(), price: Math.round(Number(p.price)), includes: p.includes.trim() }));
     if (cleanPkgs.some((p) => !Number.isFinite(p.price) || p.price <= 0)) return setError("Prices must be numbers above 0");
+    const cleanSizes = sizes
+      .filter((s) => s.name.trim())
+      .map((s) => ({
+        name: s.name.trim(),
+        tiers: s.tiers
+          .filter((t) => t.minQty && t.unitPrice)
+          .map((t) => ({ minQty: Math.round(Number(t.minQty)), unitPrice: Math.round(Number(t.unitPrice)) })),
+      }));
     start(async () => {
       const res = await saveDesign({
         id: initial?.id,
@@ -113,6 +138,11 @@ export function DesignForm({ categories, initial }: { categories: Category[]; in
         isLive,
         media,
         packages: cleanPkgs,
+        sizes: cleanSizes,
+        minQty: Math.max(1, Math.round(Number(minQty) || 1)),
+        askOrientation,
+        askDesignReady,
+        designFee: designFee ? Math.round(Number(designFee)) : null,
       });
       if (res.ok) {
         router.push("/admin");
@@ -174,11 +204,84 @@ export function DesignForm({ categories, initial }: { categories: Category[]; in
 
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-2 text-[13px] font-bold text-body">How is it priced?</legend>
-        <div className="grid grid-cols-2 gap-1.5 rounded-[14px] bg-[#edeaf3] p-1">
-          <button type="button" aria-pressed={pricingType === "FIXED"} onClick={() => setPricingType("FIXED")} className={seg(pricingType === "FIXED")}>Fixed price</button>
-          <button type="button" aria-pressed={pricingType === "QUOTE"} onClick={() => setPricingType("QUOTE")} className={seg(pricingType === "QUOTE")}>Quote / talk to me</button>
+        <div className="grid grid-cols-3 gap-1.5 rounded-[14px] bg-[#edeaf3] p-1">
+          {(
+            [
+              ["FIXED", "Packages"],
+              ["UNIT", "Per piece"],
+              ["QUOTE", "Quote only"],
+            ] as const
+          ).map(([k, l]) => (
+            <button key={k} type="button" aria-pressed={pricingType === k} onClick={() => setPricingType(k)} className={seg(pricingType === k)}>
+              {l}
+            </button>
+          ))}
         </div>
       </fieldset>
+
+      {pricingType === "UNIT" && (
+        <section className="flex flex-col gap-4 rounded-2xl border border-line bg-white p-4">
+          <p className="text-sm leading-relaxed text-muted">
+            For printed items like paper bags. Each size gets prices per piece by quantity. A size with no prices shows
+            &ldquo;Quote&rdquo; and goes to WhatsApp.
+          </p>
+          {sizes.length === 0 && (
+            <button type="button" onClick={() => setSizes(A_SIZES.map((name) => ({ name, tiers: [] })))} className="min-h-12 rounded-xl bg-brand-soft font-extrabold text-brand-dark">
+              Add A5, A4, A3, A2, A1
+            </button>
+          )}
+          {sizes.map((s, i) => (
+            <div key={i} className="flex flex-col gap-2 rounded-xl border border-line p-3">
+              <div className="flex items-center gap-2">
+                <input aria-label="Size name" value={s.name} onChange={(e) => setSizes((x) => x.map((y, k) => (k === i ? { ...y, name: e.target.value } : y)))} className={`${field} flex-1 font-extrabold`} />
+                <button type="button" aria-label={`Remove size ${s.name}`} onClick={() => setSizes((x) => x.filter((_, k) => k !== i))} className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-line text-muted">
+                  <CloseIcon className="size-4" />
+                </button>
+              </div>
+              {s.tiers.length === 0 && <span className="text-[13px] text-muted">No prices yet: customers will ask for a quote.</span>}
+              {s.tiers.map((t, j) => (
+                <div key={j} className="flex items-center gap-2 text-sm">
+                  <span className="shrink-0 font-bold text-body">From</span>
+                  <input aria-label="From quantity" inputMode="numeric" value={t.minQty} placeholder="qty" onChange={(e) => setSizes((x) => x.map((y, k) => (k === i ? { ...y, tiers: y.tiers.map((z, m) => (m === j ? { ...z, minQty: e.target.value.replace(/[^\d]/g, "") } : z)) } : y)))} className={`${field} w-20`} />
+                  <span className="shrink-0 font-bold text-body">pcs ₦</span>
+                  <input aria-label="Price per piece" inputMode="numeric" value={t.unitPrice} placeholder="each" onChange={(e) => setSizes((x) => x.map((y, k) => (k === i ? { ...y, tiers: y.tiers.map((z, m) => (m === j ? { ...z, unitPrice: e.target.value.replace(/[^\d]/g, "") } : z)) } : y)))} className={`${field} min-w-0 flex-1`} />
+                  <button type="button" aria-label="Remove price tier" onClick={() => setSizes((x) => x.map((y, k) => (k === i ? { ...y, tiers: y.tiers.filter((_, m) => m !== j) } : y)))} className="flex size-10 shrink-0 items-center justify-center rounded-lg text-muted">
+                    <CloseIcon className="size-4" />
+                  </button>
+                </div>
+              ))}
+              <button type="button" onClick={() => setSizes((x) => x.map((y, k) => (k === i ? { ...y, tiers: [...y.tiers, { minQty: y.tiers.length ? "" : "1", unitPrice: "" }] } : y)))} className="self-start rounded-full px-1 py-1.5 text-sm font-extrabold text-brand-dark">
+                + Add price tier
+              </button>
+            </div>
+          ))}
+          <button type="button" onClick={() => setSizes((x) => [...x, { name: "", tiers: [] }])} className="min-h-11 rounded-xl border border-dashed border-field font-bold text-body">
+            + Add another size
+          </button>
+          <label className="flex items-center justify-between gap-3 text-sm font-bold">
+            Minimum order (pieces)
+            <input value={minQty} inputMode="numeric" onChange={(e) => setMinQty(e.target.value.replace(/[^\d]/g, ""))} className={`${field} w-24`} />
+          </label>
+          <label className="flex items-center justify-between gap-3 text-sm font-bold">
+            Ask portrait or landscape
+            <input type="checkbox" checked={askOrientation} onChange={(e) => setAskOrientation(e.target.checked)} className="size-5 accent-brand" />
+          </label>
+          <label className="flex items-center justify-between gap-3 text-sm font-bold">
+            Ask &ldquo;Do you have a design ready?&rdquo;
+            <input type="checkbox" checked={askDesignReady} onChange={(e) => setAskDesignReady(e.target.checked)} className="size-5 accent-brand" />
+          </label>
+          {askDesignReady && (
+            <label className="flex items-center justify-between gap-3 text-sm font-bold">
+              Design fee if I design it (₦, optional)
+              <input value={designFee} inputMode="numeric" placeholder="quote" onChange={(e) => setDesignFee(e.target.value.replace(/[^\d]/g, ""))} className={`${field} w-28`} />
+            </label>
+          )}
+          <label className="flex items-center justify-between gap-3 text-sm font-bold">
+            Deposit %
+            <input value={deposit} inputMode="numeric" onChange={(e) => setDeposit(e.target.value.replace(/[^\d]/g, ""))} className={`${field} w-24`} />
+          </label>
+        </section>
+      )}
 
       {pricingType === "FIXED" ? (
         <section className="flex flex-col gap-3 rounded-2xl border border-line bg-white p-4">
@@ -197,7 +300,7 @@ export function DesignForm({ categories, initial }: { categories: Category[]; in
             <input value={deposit} inputMode="numeric" onChange={(e) => setDeposit(e.target.value.replace(/[^\d]/g, ""))} className={`${field} w-24`} />
           </label>
         </section>
-      ) : (
+      ) : pricingType === "QUOTE" ? (
         <section className="flex flex-col gap-3 rounded-2xl border border-line bg-white p-4">
           <p className="text-sm text-muted">No checkout. Customers send you a brief on WhatsApp and you quote them.</p>
           <label className="flex items-center justify-between gap-3 text-sm font-bold">
@@ -209,7 +312,7 @@ export function DesignForm({ categories, initial }: { categories: Category[]; in
             <textarea value={questions} onChange={(e) => setQuestions(e.target.value)} rows={2} placeholder="What does your business do? Any colors you like? Budget range?" className={`${field} resize-none py-3`} />
           </label>
         </section>
-      )}
+      ) : null}
 
       <label className="flex min-h-13 items-center justify-between gap-3 rounded-[14px] border border-line bg-white px-4 font-extrabold">
         Show on shop

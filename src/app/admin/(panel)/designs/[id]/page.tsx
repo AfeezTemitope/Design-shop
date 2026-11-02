@@ -11,7 +11,11 @@ export default async function EditDesign({ params }: { params: Promise<{ id: str
   const [design, categories] = await Promise.all([
     prisma.design.findUnique({
       where: { id },
-      include: { media: { orderBy: { sortOrder: "asc" } }, packages: { orderBy: { sortOrder: "asc" } } },
+      include: {
+        media: { orderBy: { sortOrder: "asc" } },
+        packages: { orderBy: { sortOrder: "asc" } },
+        sizes: { orderBy: { sortOrder: "asc" }, include: { tiers: { orderBy: { minQty: "asc" } } } },
+      },
     }),
     prisma.category.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
   ]);
@@ -35,6 +39,11 @@ export default async function EditDesign({ params }: { params: Promise<{ id: str
           isLive: design.isLive,
           media: design.media.map((m) => ({ url: m.url, type: m.type })),
           packages: design.packages.map((p) => ({ name: p.name, price: p.price, includes: p.includes })),
+          sizes: design.sizes.map((s) => ({ name: s.name, tiers: s.tiers.map((t) => ({ minQty: t.minQty, unitPrice: t.unitPrice })) })),
+          minQty: design.minQty,
+          askOrientation: design.askOrientation,
+          askDesignReady: design.askDesignReady,
+          designFee: design.designFee,
         }}
       />
     </div>

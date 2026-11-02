@@ -32,6 +32,8 @@ export default async function Orders() {
           <span className="text-[13px] text-body">
             {o.designTitle}
             {o.packageName ? ` · ${o.packageName}` : ""}
+            {o.size ? ` · ${o.size}${o.orientation ? ` ${o.orientation.toLowerCase()}` : ""}` : ""}
+            {o.quantity ? ` · ${o.quantity} pcs` : ""}
             {o.amount != null ? ` · ${naira(o.amount)}` : ""}
             {o.deposit != null ? ` (deposit ${naira(o.deposit)})` : ""}
           </span>
@@ -44,6 +46,8 @@ export default async function Orders() {
               <span>Phone: {o.phone}</span>
               {o.email && <span>Email: {o.email}</span>}
               {o.brand && <span>Brand: {o.brand}</span>}
+              {o.designReady !== null && <span>Design: {o.designReady ? "customer has design" : "needs design"}{o.designFee ? ` (+${naira(o.designFee)})` : ""}</span>}
+              {o.unitPrice != null && o.quantity != null && <span>Price: {naira(o.unitPrice)} × {o.quantity}</span>}
               {o.details && <p className="whitespace-pre-wrap">{o.details}</p>}
               {o.references.map((r, i) => (
                 <a key={r} href={r} target="_blank" rel="noreferrer" className="font-bold text-brand-dark">Reference {i + 1}</a>

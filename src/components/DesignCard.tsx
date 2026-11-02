@@ -6,7 +6,7 @@ import { naira } from "@/lib/format";
 export type CardDesign = {
   slug: string;
   title: string;
-  pricingType: "FIXED" | "QUOTE";
+  pricingType: "FIXED" | "QUOTE" | "UNIT";
   startsFrom: number | null;
   fromPrice: number | null;
   cover: { url: string; type: "IMAGE" | "VIDEO" } | null;
@@ -20,8 +20,10 @@ export function DesignCard({ d, priority }: { d: CardDesign; priority?: boolean 
         ? `Starts ${naira(d.startsFrom)}`
         : "Price on request"
       : d.fromPrice != null
-        ? `From ${naira(d.fromPrice)}`
-        : "See packages";
+        ? `From ${naira(d.fromPrice)}${d.pricingType === "UNIT" ? " / pc" : ""}`
+        : d.pricingType === "UNIT"
+          ? "Price on request"
+          : "See packages";
 
   return (
     <Link

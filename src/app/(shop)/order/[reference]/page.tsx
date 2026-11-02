@@ -26,7 +26,9 @@ export default async function OrderPage({ params }: { params: Promise<{ referenc
   const message = [
     `Hi ${site.name}! ${paid ? "I just paid my deposit." : "About my order:"}`,
     `Order ref: ${order.reference}`,
-    `• Design: ${order.designTitle}${order.packageName ? ` (${order.packageName})` : ""}`,
+    `• Item: ${order.designTitle}${order.packageName ? ` (${order.packageName})` : ""}`,
+    ...(order.size ? [`• Size: ${order.size}${order.orientation ? ` (${order.orientation})` : ""}`] : []),
+    ...(order.quantity ? [`• Quantity: ${order.quantity} pcs`] : []),
     `• Name: ${order.customerName}`,
     ...(order.brand ? [`• Brand: ${order.brand}`] : []),
     ...(order.details ? [`• Details: ${order.details}`] : []),
@@ -47,6 +49,9 @@ export default async function OrderPage({ params }: { params: Promise<{ referenc
         <div className="flex justify-between py-1"><span className="text-muted">Order ref</span><strong>{order.reference}</strong></div>
         <div className="flex justify-between py-1"><span className="text-muted">Design</span><span className="font-bold">{order.designTitle}</span></div>
         {order.packageName && <div className="flex justify-between py-1"><span className="text-muted">Package</span><span className="font-bold">{order.packageName}</span></div>}
+        {order.size && <div className="flex justify-between py-1"><span className="text-muted">Size</span><span className="font-bold">{order.size}{order.orientation ? ` · ${order.orientation}` : ""}</span></div>}
+        {order.quantity != null && <div className="flex justify-between py-1"><span className="text-muted">Quantity</span><span className="font-bold">{order.quantity} pcs</span></div>}
+        {order.amount != null && <div className="flex justify-between py-1"><span className="text-muted">Total</span><span className="font-bold">{naira(order.amount)}</span></div>}
         {order.deposit != null && <div className="flex justify-between py-1"><span className="text-muted">Deposit</span><span className="font-bold">{naira(order.deposit)}</span></div>}
       </div>
       <a href={waLink(message)} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand font-extrabold text-white">

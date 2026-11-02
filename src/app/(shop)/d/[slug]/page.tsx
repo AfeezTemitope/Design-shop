@@ -8,6 +8,7 @@ import { OrderPanel } from "@/components/OrderPanel";
 import { BackIcon } from "@/components/icons";
 import { cld, videoPoster } from "@/lib/cloudinary";
 import { naira } from "@/lib/format";
+import { tierLabels } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,7 @@ const getDesign = cache((slug: string) =>
       category: true,
       media: { orderBy: { sortOrder: "asc" } },
       packages: { orderBy: { sortOrder: "asc" } },
+      sizes: { orderBy: { sortOrder: "asc" }, include: { tiers: { orderBy: { minQty: "asc" } } } },
     },
   }),
 );
@@ -40,6 +42,8 @@ export default async function DesignPage({ params }: { params: Params }) {
   const d = await getDesign((await params).slug);
   if (!d) notFound();
   const isQuote = d.pricingType === "QUOTE";
+  const isUnit = d.pricingType === "UNIT";
+  const typeLabel = isQuote ? "custom, let’s talk first" : isUnit ? "priced per piece" : "fixed price";
 
   return (
     <div className="px-5 pt-4 md:grid md:grid-cols-2 md:gap-10 md:pt-8">
@@ -56,13 +60,39 @@ export default async function DesignPage({ params }: { params: Params }) {
               isQuote ? "bg-[#f2eff7] text-ink" : "bg-brand-soft text-brand-dark"
             }`}
           >
-            {d.category.name} · {isQuote ? "custom, let’s talk first" : "fixed price"}
+            {d.category.name} · {typeLabel}
           </span>
           <h1 className="mt-1 text-2xl font-black md:text-4xl">{d.title}</h1>
           {d.description && <p className="max-w-prose leading-relaxed text-body">{d.description}</p>}
         </div>
 
-        {isQuote ? (
+        {isUnit ? (
+          <div className="flex flex-col gap-3 rounded-2xl border border-line bg-white p-4">
+            <span className="font-black">Prices per piece</span>
+            {d.sizes.map((s) => (
+              <div key={s.id} className="flex items-start justify-between gap-4 border-b border-line pb-3 text-sm last:border-0 last:pb-0">
+                <span className="font-extrabold">{s.name}</span>
+                {s.tiers.length ? (
+                  <div className="flex flex-col items-end gap-0.5">
+                    {tierLabels(s.tiers).map((t) => (
+                      <span key={t.range}>
+                        <span className="text-muted">{t.range}</span> · <strong>{naira(t.unitPrice)}</strong>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-muted">Price on request</span>
+                )}
+              </div>
+            ))}
+            <p className="border-t border-line pt-3 text-[13px] leading-relaxed text-muted">
+              {d.askOrientation ? "Portrait or landscape. " : ""}
+              {d.minQty > 1 ? `Minimum ${d.minQty} pieces. ` : ""}
+              {d.askDesignReady ? `Bring your design or I’ll design it${d.designFee ? ` (+${naira(d.designFee)})` : ""}. ` : ""}
+              Pay {d.depositPercent}% to start.
+            </p>
+          </div>
+        ) : isQuote ? (
           <div className="flex flex-col gap-2 rounded-2xl border border-line bg-white p-4">
             <span className="font-black">Priced per project</span>
             <p className="text-sm leading-relaxed text-body">
@@ -100,6 +130,11 @@ export default async function DesignPage({ params }: { params: Params }) {
           depositPercent: d.depositPercent,
           quoteQuestions: d.quoteQuestions,
           packages: d.packages.map(({ id, name, price, includes }) => ({ id, name, price, includes })),
+          sizes: d.sizes.map((s) => ({ name: s.name, tiers: s.tiers.map(({ minQty, unitPrice }) => ({ minQty, unitPrice })) })),
+          minQty: d.minQty,
+          askOrientation: d.askOrientation,
+          askDesignReady: d.askDesignReady,
+          designFee: d.designFee,
         }}
       />
     </div>

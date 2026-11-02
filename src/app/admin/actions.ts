@@ -49,11 +49,24 @@ const designSchema = z
     title: z.string().trim().min(2, "Add a title").max(80),
     description: z.string().trim().max(1000).default(""),
     categoryId: z.string().min(1, "Pick a category"),
-    pricingType: z.enum(["FIXED", "QUOTE"]),
+    pricingType: z.enum(["FIXED", "QUOTE", "UNIT"]),
     startsFrom: z.number().int().positive().nullable().default(null),
     depositPercent: z.number().int().min(10).max(100).default(50),
     quoteQuestions: z.string().trim().max(500).default(""),
     isLive: z.boolean().default(true),
+    minQty: z.number().int().min(1).max(100000).default(1),
+    askOrientation: z.boolean().default(false),
+    askDesignReady: z.boolean().default(false),
+    designFee: z.number().int().positive().nullable().default(null),
+    sizes: z
+      .array(
+        z.object({
+          name: z.string().trim().min(1, "Every size needs a name").max(30),
+          tiers: z.array(z.object({ minQty: z.number().int().min(1), unitPrice: z.number().int().positive() })).max(8),
+        }),
+      )
+      .max(12)
+      .default([]),
     media: z
       .array(z.object({ url: z.string().refine(isCloudinaryUrl, "Media must be a Cloudinary URL"), type: z.enum(["IMAGE", "VIDEO"]) }))
       .min(1, "Add at least one sample")
@@ -62,7 +75,11 @@ const designSchema = z
       .array(z.object({ name: z.string().trim().min(1).max(40), price: z.number().int().positive(), includes: z.string().trim().max(300).default("") }))
       .max(5),
   })
-  .refine((d) => d.pricingType === "QUOTE" || d.packages.length > 0, { message: "Fixed-price designs need at least one package with a price" });
+  .refine((d) => d.pricingType !== "FIXED" || d.packages.length > 0, { message: "Fixed-price designs need at least one package with a price" })
+  .refine((d) => d.pricingType !== "UNIT" || d.sizes.length > 0, { message: "Add at least one size" })
+  .refine((d) => d.sizes.every((s) => new Set(s.tiers.map((t) => t.minQty)).size === s.tiers.length), {
+    message: "Two price tiers in the same size can't start at the same quantity",
+  });
 
 export type SaveResult = { ok: true } | { ok: false; error: string };
 
@@ -72,6 +89,7 @@ export async function saveDesign(input: z.input<typeof designSchema>): Promise<S
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the form" };
   const d = parsed.data;
   const packages = d.pricingType === "FIXED" ? d.packages : [];
+  const sizes = d.pricingType === "UNIT" ? d.sizes : [];
 
   const base = {
     title: d.title,
@@ -82,25 +100,37 @@ export async function saveDesign(input: z.input<typeof designSchema>): Promise<S
     depositPercent: d.depositPercent,
     quoteQuestions: d.quoteQuestions,
     isLive: d.isLive,
+    minQty: d.pricingType === "UNIT" ? d.minQty : 1,
+    askOrientation: d.pricingType === "UNIT" && d.askOrientation,
+    askDesignReady: d.pricingType === "UNIT" && d.askDesignReady,
+    designFee: d.pricingType === "UNIT" ? d.designFee : null,
   };
   const media = d.media.map((m, i) => ({ url: m.url, type: m.type, sortOrder: i }));
   const pkgs = packages.map((p, i) => ({ ...p, sortOrder: i }));
+  const sizeRows = sizes.map((s, i) => ({
+    name: s.name,
+    sortOrder: i,
+    tiers: { create: [...s.tiers].sort((a, b) => a.minQty - b.minQty) },
+  }));
 
   let slug: string;
   if (d.id) {
     const updated = await prisma.$transaction(async (tx) => {
       await tx.media.deleteMany({ where: { designId: d.id } });
       await tx.package.deleteMany({ where: { designId: d.id } });
+      await tx.sizeOption.deleteMany({ where: { designId: d.id } });
       return tx.design.update({
         where: { id: d.id },
-        data: { ...base, media: { create: media }, packages: { create: pkgs } },
+        data: { ...base, media: { create: media }, packages: { create: pkgs }, sizes: { create: sizeRows } },
       });
     });
     slug = updated.slug;
   } else {
     slug = slugify(d.title) || "design";
     if (await prisma.design.findUnique({ where: { slug } })) slug = `${slug}-${Date.now().toString(36)}`;
-    await prisma.design.create({ data: { ...base, slug, media: { create: media }, packages: { create: pkgs } } });
+    await prisma.design.create({
+      data: { ...base, slug, media: { create: media }, packages: { create: pkgs }, sizes: { create: sizeRows } },
+    });
   }
   refreshShop(slug);
   return { ok: true };

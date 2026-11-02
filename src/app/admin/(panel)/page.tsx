@@ -10,7 +10,12 @@ export const dynamic = "force-dynamic";
 export default async function AdminDesigns() {
   const designs = await prisma.design.findMany({
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-    include: { category: true, media: { orderBy: { sortOrder: "asc" } }, packages: { select: { price: true } } },
+    include: {
+      category: true,
+      media: { orderBy: { sortOrder: "asc" } },
+      packages: { select: { price: true } },
+      sizes: { select: { tiers: { select: { unitPrice: true } } } },
+    },
   });
   const live = designs.filter((d) => d.isLive).length;
 
@@ -29,7 +34,9 @@ export default async function AdminDesigns() {
       {designs.map((d) => {
         const cover = d.media[0];
         const thumb = cover ? (cover.type === "VIDEO" ? videoPoster(cover.url, 120) : cld(cover.url, "f_auto,q_auto,w_120,h_120,c_fill")) : undefined;
-        const from = d.packages.length ? Math.min(...d.packages.map((p) => p.price)) : null;
+        const prices = d.pricingType === "UNIT" ? d.sizes.flatMap((s) => s.tiers.map((t) => t.unitPrice)) : d.packages.map((p) => p.price);
+        const from = prices.length ? Math.min(...prices) : null;
+        const typeLabel = d.pricingType === "QUOTE" ? "Quote" : d.pricingType === "UNIT" ? "Per piece" : "Packages";
         return (
           <div key={d.id} className="flex items-center gap-3 rounded-2xl border border-line bg-white p-3">
             <Link href={`/admin/designs/${d.id}`} className="flex min-w-0 flex-1 items-center gap-3">
@@ -41,10 +48,10 @@ export default async function AdminDesigns() {
               <span className="flex min-w-0 flex-col gap-0.5">
                 <span className="truncate font-extrabold">{d.title}</span>
                 <span className="text-[13px] text-muted">
-                  {d.category.name} · {d.pricingType === "QUOTE" ? "price on request" : from != null ? `from ${naira(from)}` : "no price"}
+                  {d.category.name} · {d.pricingType === "QUOTE" ? "price on request" : from != null ? `from ${naira(from)}${d.pricingType === "UNIT" ? "/pc" : ""}` : "no price"}
                 </span>
                 <span className={`self-start rounded-full px-2 py-0.5 text-[11px] font-extrabold ${d.pricingType === "QUOTE" ? "bg-[#f2eff7] text-ink" : "bg-brand-soft text-brand-dark"}`}>
-                  {d.pricingType === "QUOTE" ? "Quote" : "Fixed price"}
+                  {typeLabel}
                 </span>
               </span>
             </Link>

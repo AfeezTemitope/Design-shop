@@ -24,6 +24,7 @@ export default async function ShopPage({ searchParams }: { searchParams: Search 
       include: {
         media: { orderBy: { sortOrder: "asc" } },
         packages: { select: { price: true } },
+        sizes: { select: { tiers: { select: { unitPrice: true } } } },
       },
     }),
   ]);
@@ -33,7 +34,11 @@ export default async function ShopPage({ searchParams }: { searchParams: Search 
     title: d.title,
     pricingType: d.pricingType,
     startsFrom: d.startsFrom,
-    fromPrice: d.packages.length ? Math.min(...d.packages.map((p) => p.price)) : null,
+    fromPrice: (() => {
+      const prices =
+        d.pricingType === "UNIT" ? d.sizes.flatMap((s) => s.tiers.map((t) => t.unitPrice)) : d.packages.map((p) => p.price);
+      return prices.length ? Math.min(...prices) : null;
+    })(),
     cover: d.media[0] ? { url: d.media[0].url, type: d.media[0].type } : null,
     sampleCount: d.media.length,
   }));

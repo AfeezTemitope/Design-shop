@@ -10,6 +10,7 @@ datasource db {
 enum PricingType {
   FIXED
   QUOTE
+  UNIT
 }
 
 enum MediaType {
@@ -47,10 +48,15 @@ model Design {
   startsFrom     Int?
   depositPercent Int         @default(50)
   quoteQuestions String      @default("")
+  minQty         Int         @default(1)
+  askOrientation Boolean     @default(false)
+  askDesignReady Boolean     @default(false)
+  designFee      Int?
   isLive         Boolean     @default(true)
   sortOrder      Int         @default(0)
   media          Media[]
   packages       Package[]
+  sizes          SizeOption[]
   orders         Order[]
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -77,6 +83,25 @@ model Package {
   sortOrder Int    @default(0)
 }
 
+/// A size a per-piece product comes in (e.g. A3). No tiers = price on request for that size.
+model SizeOption {
+  id        String      @id @default(cuid())
+  design    Design      @relation(fields: [designId], references: [id], onDelete: Cascade)
+  designId  String
+  name      String
+  sortOrder Int         @default(0)
+  tiers     PriceTier[]
+}
+
+/// Price per piece from `minQty` upwards (e.g. 1+ = 1700, 100+ = 1300).
+model PriceTier {
+  id        String     @id @default(cuid())
+  size      SizeOption @relation(fields: [sizeId], references: [id], onDelete: Cascade)
+  sizeId    String
+  minQty    Int
+  unitPrice Int
+}
+
 model Order {
   id           String      @id @default(cuid())
   reference    String      @unique
@@ -84,6 +109,12 @@ model Order {
   designId     String?
   designTitle  String
   packageName  String?
+  size         String?
+  orientation  String?
+  quantity     Int?
+  unitPrice    Int?
+  designReady  Boolean?
+  designFee    Int?
   amount       Int?
   deposit      Int?
   customerName String

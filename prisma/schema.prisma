@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PricingType {
+  FIXED
+  QUOTE
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  DEPOSIT_PAID
+  WHATSAPP_LEAD
+  NEEDS_QUOTE
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  sortOrder Int      @default(0)
+  designs   Design[]
+  createdAt DateTime @default(now())
+}
+
+model Design {
+  id             String      @id @default(cuid())
+  slug           String      @unique
+  title          String
+  description    String      @default("")
+  category       Category    @relation(fields: [categoryId], references: [id])
+  categoryId     String
+  pricingType    PricingType @default(FIXED)
+  startsFrom     Int?
+  depositPercent Int         @default(50)
+  quoteQuestions String      @default("")
+  isLive         Boolean     @default(true)
+  sortOrder      Int         @default(0)
+  media          Media[]
+  packages       Package[]
+  orders         Order[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([isLive, categoryId])
+}
+
+model Media {
+  id        String    @id @default(cuid())
+  design    Design    @relation(fields: [designId], references: [id], onDelete: Cascade)
+  designId  String
+  url       String
+  type      MediaType
+  sortOrder Int       @default(0)
+}
+
+model Package {
+  id        String @id @default(cuid())
+  design    Design @relation(fields: [designId], references: [id], onDelete: Cascade)
+  designId  String
+  name      String
+  price     Int
+  includes  String @default("")
+  sortOrder Int    @default(0)
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  reference    String      @unique
+  design       Design?     @relation(fields: [designId], references: [id], onDelete: SetNull)
+  designId     String?
+  designTitle  String
+  packageName  String?
+  amount       Int?
+  deposit      Int?
+  customerName String
+  phone        String
+  email        String?
+  brand        String      @default("")
+  details      String      @default("")
+  references   String[]
+  status       OrderStatus
+  paidAt       DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([status, createdAt])
+}

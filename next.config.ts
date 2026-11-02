@@ -1,16 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
-  turbopack: {
-    rules: {
-      "*.css": {
-        loaders: ["@tailwindcss/turbopack"],
-        as: "*.css",
-      },
-    },
+  poweredByHeader: false,
+  // Type errors still fail the build; lint runs separately so a mismatched eslint preset can't block deploys
+  eslint: { ignoreDuringBuilds: true },
+  experimental: {
+    serverActions: { bodySizeLimit: "2mb" },
   },
 };
 

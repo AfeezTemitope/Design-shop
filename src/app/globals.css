@@ -1,26 +1,41 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --font-sans: "Nunito Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --color-brand: #7c41f1;
+  --color-brand-dark: #5b21d6;
+  --color-brand-soft: #efe7fe;
+  --color-accent: #e3262c;
+  --color-ink: #17141f;
+  --color-body: #3d3747;
+  --color-muted: #6b6577;
+  --color-line: #ece8f3;
+  --color-field: #dcd6e6;
+  --color-canvas: #f7f6fb;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Horizontal rails (category chips, sample thumbnails) scroll without a visible bar */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
   }
 }
 
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+input,
+textarea,
+select {
+  font-size: 16px; /* stops iOS zooming into fields */
 }

@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BelzGraphics — design shop
 
-## Getting Started
+Mobile-first shop for BelzGraphics: customers browse designs, view samples, then either pay a deposit
+with Paystack or send their order/brief to WhatsApp. Admin manages designs, categories and orders.
 
-First, run the development server:
+Stack: Next.js 15 (App Router) · Tailwind v4 · Prisma + Postgres · Cloudinary · Paystack.
+
+## 1. Setup
 
 ```bash
+npm install
+cp .env.example .env.local      # then fill it in (see below)
+cp .env.local .env              # Prisma CLI reads .env
+npm run db:push                 # creates the tables
+npm run db:seed                 # adds Flyers, Logos, Branding, Merch, Videos, Custom
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000 for the shop and http://localhost:3000/admin for the admin.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 2. Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Where to get it |
+| --- | --- |
+| `DATABASE_URL` | Neon (neon.tech) → new project → connection string |
+| `ADMIN_PASSWORD` | Any strong password; this is your admin login |
+| `AUTH_SECRET` | Random 32+ chars: `openssl rand -base64 32` |
+| `PAYSTACK_SECRET_KEY` | Paystack dashboard → Settings → API Keys & Webhooks (use `sk_test_` first) |
+| `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Cloudinary dashboard |
+| `NEXT_PUBLIC_CLOUDINARY_REFS_PRESET` | Cloudinary → Settings → Upload → add an **unsigned** preset, folder `belzgraphics/refs` |
 
-## Learn More
+Never commit `.env` / `.env.local`, and never paste the secret keys anywhere public.
 
-To learn more about Next.js, take a look at the following resources:
+## 3. Paystack webhook
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Paystack dashboard → Settings → API Keys & Webhooks → Webhook URL:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+https://graphics.afeeztemitope.com/api/paystack/webhook
+```
 
-## Deploy on Vercel
+The order page also double-checks payment with Paystack when the customer returns, so orders still
+get marked paid if the webhook is slow.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 4. Deploy (Vercel)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Push to GitHub, import the repo in Vercel, add all env vars (production values).
+2. Vercel → Domains → add `graphics.afeeztemitope.com`.
+3. At your DNS provider add `CNAME graphics → cname.vercel-dns.com`.
+4. Run `npm run db:push` once against the production database.
+
+## How it works
+
+- **Fixed-price designs**: customer picks a package → pays the deposit (Paystack) or sends the order to WhatsApp.
+  Orders are saved first, so every WhatsApp message carries an order ref (e.g. `BG-3F9A21C0`).
+- **Quote designs** (branding, custom): no checkout; customer sends a brief to WhatsApp, saved as “Needs quote”.
+- **Media**: admin uploads go straight to Cloudinary (signed); you can also paste existing Cloudinary URLs.
+  Images and videos are served through Cloudinary with `f_auto,q_auto`, so they're optimised for mobile data.
+- **Install as an app**: the site has a web manifest, so “Add to Home Screen” opens it full-screen.
+
+## Folder map
+
+```
+src/app/(shop)            customer pages: shop, design page, about, contact, order status
+src/app/admin             login + panel (designs, categories, orders) and server actions
+src/app/actions/order.ts  creates orders, starts Paystack or builds the WhatsApp message
+src/app/api               Paystack webhook, Cloudinary upload signing
+src/components            UI (Gallery, OrderPanel, DesignCard, admin/DesignForm…)
+src/lib                   prisma, paystack, cloudinary helpers, site config (phone, email, handles)
+prisma/schema.prisma      Category, Design, Media, Package, Order
+```
+
+Contact details and social handles live in `src/lib/site.ts`.
